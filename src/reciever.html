@@ -1,0 +1,109 @@
+<html>
+  <head>
+    <meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+    <script type="text/javascript">
+
+      var CLIENT_ID = '783756533925-lf078vlhalan0lq0ijnc9jmahlji0vt4.apps.googleusercontent.com';
+      var SCOPES = 'https://www.googleapis.com/auth/drive';
+        
+      var SENDERS_USERNAME = 'kaushal';
+
+      var RECEIVERS_USERNAME = 'anuteja';
+    
+      var FILE_ID = '0B1tGo9gYl89VQmZkZFk5a1JSSHc'
+
+       /**
+        * Called when the client library is loaded to start the auth flow.
+        */
+        function handleClientLoad() 
+        {
+            window.setTimeout(checkAuth, 1);
+        }
+
+     /**
+      * Check if the current user has authorized the application.
+      */
+        function checkAuth() 
+        {
+            gapi.auth.authorize({'client_id': CLIENT_ID, 
+                                 'scope': SCOPES, 
+                                 'immediate': true},
+                                 handleAuthResult);
+        }
+
+      /**
+       * Called when authorization server replies.
+       *
+       * @param {Object} authResult Authorization result.
+       */
+        function handleAuthResult(authResult) 
+        {
+            var authButton = document.getElementById('authorizeButton');
+            var message_box = document.getElementById('message_box');
+            var push_button = document.getElementById('push_button');
+            authButton.style.display = 'none';
+            message_box.style.display = 'none';
+            push_button.style.display = 'none';
+            if (authResult && !authResult.error) 
+            {
+            // Access token has been successfully retrieved, requests can be sent to the API.
+              message_box.style.display = 'block';
+              push_button.style.display = 'block';
+              push_button.onclick = function() {download_data(FILE_ID);};
+            } 
+            else 
+            {
+            // No access token could be retrieved, show the button to start the authorization flow.
+            authButton.style.display = 'block';
+            authButton.onclick = function() {
+            gapi.auth.authorize({'client_id': CLIENT_ID, 
+                                 'scope': SCOPES, 
+                                 'immediate': false},
+                                 handleAuthResult);
+                };
+            }
+        }
+
+        /**
+         * Start the file upload.
+         *
+         * @param {Object} evt Arguments from the file selector.
+         */
+        function download_data(file_id) 
+        {
+            gapi.client.load('drive', 'v2', function() {
+                    var request = gapi.client.drive.files.get({'fileId': file_id
+                                                              });
+                    request.execute(function(resp) {
+                        download_data_from_file(resp.downloadUrl);
+                                                   });
+                                                        });
+
+        }
+
+        /**
+         * Insert new file.
+         *
+         * @param {File} fileData File object to read data from.
+         * @param {Function} callback Function to call when the request is complete.
+         */
+        function download_data_from_file(downloadUrl)
+        {
+            var accessToken = gapi.auth.getToken().access_token;
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', downloadUrl);
+            xhr.onload = function(){console.log(xhr.responseText);};
+            xhr.setRequestHeader('Authorization', 'Bearer ' + accessToken);
+            xhr.send();
+        }
+
+    </script>
+    <script type="text/javascript" src="https://apis.google.com/js/client.js?onload=handleClientLoad"></script>
+  </head>
+  <body>
+    <!--Add a file picker for the user to start the upload process -->
+    <input type="text" id="message_box" style="display: none" />
+    <input type="button" id="push_button" value="Push" style="display: none" />
+    <input type="button" id="authorizeButton" value="Authorize" style="display: none" />
+  </body>
+</html>

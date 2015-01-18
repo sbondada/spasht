@@ -1,0 +1,199 @@
+<html>
+  <head>
+    <meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+    <script type="text/javascript">
+
+      var CLIENT_ID = '783756533925-lf078vlhalan0lq0ijnc9jmahlji0vt4.apps.googleusercontent.com';
+      var SCOPES = 'https://www.googleapis.com/auth/drive';
+        
+      var SENDERS_USERNAME = 'kaushal';
+
+      var RECEIVERS_USERNAME = 'anuteja';
+    
+       /**
+        * Called when the client library is loaded to start the auth flow.
+        */
+        function handleClientLoad() 
+        {
+            window.setTimeout(checkAuth, 1);
+        }
+
+     /**
+      * Check if the current user has authorized the application.
+      */
+        function checkAuth() 
+        {
+            gapi.auth.authorize({'client_id': CLIENT_ID, 
+                                 'scope': SCOPES, 
+                                 'immediate': true},
+                                 handleAuthResult);
+        }
+
+        function rand() 
+        {
+        return Math.random().toString(36).substr(2); // remove `0.`
+        }
+
+        function encrypt_shuffle_and_split(data)
+        {
+            data_split_1 = '';
+            data_split_2 = '';
+            var length = data.length;
+            var diff = length/20;
+            var flag = 0;
+            var i = 0;
+            while(i<length)
+            {
+                if((i+diff)>=length)     
+                { 
+                    if(flag==0)
+                    {
+                        data_split_1 += data.substring(i,length);
+                    }
+                    else
+                    {
+                        data_split_2 += data.substring(i,length);
+                    }
+                }
+                else
+                {
+                    if(flag==0)
+                    {
+                        data_split_1 += data.substring(i,i+diff);
+                        i += diff;
+                        flag=1;
+                    }
+                    else
+                    {
+                        data_split_2 += data.substring(i,i+diff);
+                        i += diff;
+                        flag=0;
+                    }
+                }
+            }
+            console.log(data_split_1);
+            console.log(data_split_2);
+            return [data_split_1,data_split_2];
+
+        }
+
+
+      /**
+       * Called when authorization server replies.
+       *
+       * @param {Object} authResult Authorization result.
+       */
+        function handleAuthResult(authResult) 
+        {
+            var authButton = document.getElementById('authorizeButton');
+            var message_box = document.getElementById('message_box');
+            var push_button = document.getElementById('push_button');
+            authButton.style.display = 'none';
+            message_box.style.display = 'none';
+            if (authResult && !authResult.error) 
+            {
+            // Access token has been successfully retrieved, requests can be sent to the API.
+              message_box.style.display = 'block';
+              push_button.onclick = upload_data;
+            } 
+            else 
+            {
+            // No access token could be retrieved, show the button to start the authorization flow.
+            authButton.style.display = 'block';
+            authButton.onclick = function() {
+                gapi.auth.authorize({'client_id': CLIENT_ID, 
+                                     'scope': SCOPES, 
+                                     'immediate': false},
+                                      handleAuthResult);
+                };
+            }
+        }
+
+        /**
+         * Start the file upload.
+         *
+         * @param {Object} evt Arguments from the file selector.
+         */
+        function upload_data() 
+        {
+            gapi.client.load('drive', 'v2', function() {
+                var data = document.getElementById('message_box').value;
+                data_split = encrypt_shuffle_and_split(data)
+                insert_file(data_split[0]);
+                });
+        }
+
+        /**
+         * Insert new file.
+         *
+         * @param {File} fileData File object to read data from.
+         * @param {Function} callback Function to call when the request is complete.
+         */
+        function insert_file(data, callback)
+        {
+            const boundary = '-------314159265358979323846';
+            const delimiter = "\r\n--" + boundary + "\r\n";
+            const close_delim = "\r\n--" + boundary + "--";
+
+            var filename = rand() +'_'+ SENDERS_USERNAME +'_'+ RECEIVERS_USERNAME + '.txt'
+            var contentType = 'application/octet-stream';
+            var metadata = {
+              'title': filename,
+              'mimeType': contentType
+            };
+
+            var base64Data = btoa(data); 
+            console.log(base64Data);
+            var multipartRequestBody = delimiter +
+                                       'Content-Type: application/json\r\n\r\n' +
+                                       JSON.stringify(metadata) +
+                                       delimiter +
+                                       'Content-Type: ' + contentType + '\r\n' +
+                                       'Content-Transfer-Encoding: base64\r\n' +
+                                       '\r\n' +
+                                       base64Data +
+                                       close_delim;
+
+            var request = gapi.client.request({'path': '/upload/drive/v2/files',
+                                               'method': 'POST',
+                                               'params': {'uploadType': 'multipart'},
+                                               'headers': {'Content-Type': 'multipart/mixed; boundary="' + boundary + '"'},
+                                                'body': multipartRequestBody});
+
+            if (!callback) 
+            {
+                callback = function(result) {
+                    console.log(result); 
+                    share_current_file(result);
+                    };
+            }
+
+          request.execute(callback);
+        }     
+
+        function share_current_file(result)
+        { 
+            var permissions = {
+                  'role': 'writer',
+                  'type': 'user',
+                  'value': 'anutejamallampati@gmail.com'
+                  };
+            var insert_request = gapi.client.drive.permissions.insert({
+                  'fileId': result.id,
+                  'resource': permissions 
+                  });
+            console.log(result.id)
+            insert_request.execute(function(resp) { });
+         }
+      
+
+    </script>
+    <script type="text/javascript" src="https://apis.google.com/js/client.js?onload=handleClientLoad"></script>
+  </head>
+  <body>
+    <!--Add a file picker for the user to start the upload process -->
+    <input type="text" id="message_box" style="display: none" />
+    <input type="button" id="push_button" value="Push" />
+    <input type="button" id="authorizeButton" style="display: none" value="Authorize" />
+  </body>
+</html>
